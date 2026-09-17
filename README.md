@@ -16,6 +16,8 @@ For teams whose sites are in git for code review and rollback rather than for im
 cp affinity-guard.php /path/to/wp-content/mu-plugins/
 ```
 
+That one file is the entire footprint on a site. Nothing else in this repository is ever deployed — the diagnostic in `tools/` runs from your machine, and the workflow, changelog and ruleset are development files.
+
 That is the whole installation. Must-use plugins load on every request, need no activation, and cannot be switched off from the admin — which is the point on a managed fleet. WordPress only loads files at the top level of `mu-plugins`, so keep it as a single file there rather than in a subdirectory.
 
 It works as an ordinary plugin too, if you would rather have it in `plugins/` and activate it per site.
@@ -151,15 +153,15 @@ To run one now: `wp cron event run wp_version_check`.
 
 ## Diagnosing a site that has not updated
 
-[`tools/why-no-updates.php`](tools/why-no-updates.php) walks every gate a core update has to pass, in the order WordPress consults them, and names the ones that are shut. It reads state and changes nothing.
+[`tools/why-no-updates.php`](tools/why-no-updates.php) walks every gate a core update has to pass, in the order WordPress consults them, and names the ones that are shut.
+
+**It is never installed on a site.** Pipe it over stdin from your own machine, where WP-CLI reads it and runs it in memory:
 
 ```sh
-# on the server
-wp eval-file why-no-updates.php
-
-# or over ssh, without copying anything up
 ssh prod 'cd /var/www/site && wp eval-file -' < tools/why-no-updates.php
 ```
+
+Nothing is written to the server, and nothing is left behind. It reads state and changes nothing on the site either — no options, no files, no schedules. The only thing this project ever puts on a site is the single `affinity-guard.php`.
 
 It covers Guard's own configuration, `AUTOMATIC_UPDATER_DISABLED`, `DISALLOW_FILE_MODS`, the filesystem method (background updates need `direct`, not FTP credentials), the version control veto, cron scheduling and `DISABLE_WP_CRON`, a held or crashed updater lock, a recorded previous failure, and whether the offered version is one the configured level permits. The verdict lists what to fix.
 

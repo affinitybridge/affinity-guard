@@ -3,16 +3,20 @@
  * Why has this site not updated itself?
  *
  * Walks the gates a core auto-update has to pass, in the order WordPress
- * consults them, and reports the ones that are shut. Read only: it changes
- * nothing and installs nothing.
+ * consults them, and reports the ones that are shut.
  *
- *     wp eval-file why-no-updates.php
+ * This file is never installed on a site. Pipe it in from elsewhere, so WP-CLI
+ * reads it over stdin and runs it in memory, leaving nothing behind:
+ *
+ *     ssh prod 'cd /var/www/site && wp eval-file -' < tools/why-no-updates.php
+ *
+ * Read only. It changes no options, no files and no schedules.
  *
  * @package AffinityGuard
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-	fwrite( STDERR, "Run this through WP-CLI: wp eval-file why-no-updates.php\n" );
+	fwrite( STDERR, "Run this through WP-CLI: wp eval-file - < why-no-updates.php\n" );
 	exit( 1 );
 }
 
