@@ -14,6 +14,13 @@
 	<rule ref="WordPress">
 		<!-- The plugin is namespaced, so file-level prefixes are not required. -->
 		<exclude name="WordPress.NamingConventions.PrefixAllGlobals"/>
+
+		<!--
+		Filter callbacks take the signature WordPress hands them. Every callback
+		here answers from configuration and deliberately ignores the incoming
+		value, so the unused arguments are the point rather than an oversight.
+		-->
+		<exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
 	</rule>
 
 	<config name="minimum_wp_version" value="5.2"/>

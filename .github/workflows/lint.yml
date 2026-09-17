@@ -36,6 +36,12 @@ jobs:
           coverage: none
           tools: cs2pr
 
+      # phpcodesniffer-composer-installer is a Composer plugin, and Composer 2.2
+      # refuses to run plugins that are not explicitly allowed. Without this the
+      # require below aborts before anything is installed.
+      - name: Allow the PHPCS installer plugin
+        run: composer global config --no-plugins allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+
       - name: Install PHPCS and WPCS
         run: composer global require --no-interaction --no-progress dealerdirect/phpcodesniffer-composer-installer wp-coding-standards/wpcs:^3
 

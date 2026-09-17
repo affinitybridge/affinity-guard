@@ -75,9 +75,10 @@ const LEVELS = array(
 	'dev'   => array( 'minor', 'major', 'dev' ),
 );
 
-/* -------------------------------------------------------------------------
+/*
  * Configuration
- * ---------------------------------------------------------------------- */
+ * -----------------------------------------------------------------------
+ */
 
 /**
  * Whether the plugin should do anything at all.
@@ -113,6 +114,7 @@ function level() {
 			sprintf(
 				/* translators: 1: the configured value, 2: the list of valid values, 3: the fallback value. */
 				esc_html__( 'AFFINITY_GUARD_UPDATES is set to %1$s, which is not one of %2$s. Falling back to %3$s.', 'affinity-guard' ),
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- showing the developer the value they actually set, which may be any type.
 				esc_html( var_export( constant( 'AFFINITY_GUARD_UPDATES' ), true ) ),
 				esc_html( implode( ', ', array_keys( LEVELS ) ) ),
 				esc_html( DEFAULT_UPDATES )
@@ -147,9 +149,10 @@ function allows( $branch ) {
 	return in_array( $branch, LEVELS[ level() ], true );
 }
 
-/* -------------------------------------------------------------------------
+/*
  * Core update policy
- * ---------------------------------------------------------------------- */
+ * -----------------------------------------------------------------------
+ */
 
 /**
  * Tell the updater this install is not a version control checkout.
@@ -204,9 +207,10 @@ function filter_dev( $enabled ) {
 	return allows( 'dev' );
 }
 
-/* -------------------------------------------------------------------------
+/*
  * Housekeeping
- * ---------------------------------------------------------------------- */
+ * -----------------------------------------------------------------------
+ */
 
 /**
  * Report a configuration problem once per request, under WP_DEBUG.
@@ -227,9 +231,10 @@ function warn_once( $message ) {
 	}
 }
 
-/* -------------------------------------------------------------------------
+/*
  * Bootstrap
- * ---------------------------------------------------------------------- */
+ * -----------------------------------------------------------------------
+ */
 
 /*
  * Nothing is registered when the plugin is switched off, so a disabled site
