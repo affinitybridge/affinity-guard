@@ -5,10 +5,31 @@ All notable changes to Affinity Guard are recorded here. The format follows
 [semantic versioning](https://semver.org/) over its public API: the
 `AFFINITY_GUARD_*` constants and the hooks listed in the README.
 
-Self updates never cross a major version, so anything listed under a **Changed**
-or **Removed** heading in a major release has to be deployed deliberately.
+Every version reaches a site through a deploy, so anything listed under a
+**Changed** or **Removed** heading takes effect when you put it there.
 
 ## [Unreleased]
+
+## [2.0.0] - 2026-09-17
+
+### Removed
+
+- Self updating. 1.x checked GitHub on a daily cron and replaced its own file;
+  the plugin now makes no outbound requests and never writes to disk. It runs on
+  every request as a must-use file that cannot be deactivated from the admin, so
+  code able to rewrite it from the network is a foothold worth more than the
+  convenience of not deploying. Update it the way you deploy everything else.
+- `AFFINITY_GUARD_SELF_UPDATE`, and the `affinity_guard_self_update_enabled`
+  filter and `affinity_guard_self_updated` / `affinity_guard_self_update_failed`
+  actions that went with it. Breaking, so this is a major version when tagged.
+- The daily cron event. Guard now schedules nothing and runs on no timer.
+
+  An install upgrading from 1.x keeps a stale `affinity_guard_self_update` entry
+  in its cron array, which nothing answers. Clearing it was considered and
+  dropped: it would have to run even when `AFFINITY_GUARD_ENABLED` is false,
+  costing the plugin its one clean invariant — that disabled means nothing is
+  registered — to migrate installs that only exist on test sites. Clear it with
+  `wp cron event delete affinity_guard_self_update` where it matters.
 
 ## [1.0.1] - 2026-08-25
 
@@ -48,6 +69,7 @@ released and are simply gone.
   filters, and `affinity_guard_self_updated` and `affinity_guard_self_update_failed`
   actions.
 
-[Unreleased]: https://github.com/affinitybridge/affinity-guard/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/affinitybridge/affinity-guard/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/affinitybridge/affinity-guard/releases/tag/v2.0.0
 [1.0.1]: https://github.com/affinitybridge/affinity-guard/releases/tag/v1.0.1
 [1.0.0]: https://github.com/affinitybridge/affinity-guard/releases/tag/v1.0.0

@@ -2,7 +2,7 @@
 
 A must-use plugin that gives git-deployed WordPress sites a security baseline. Today that means letting core install its own patches; the name leaves room for the hardening modules coming after it.
 
-One file, no settings, no admin screen. Drop it in and forget it — it keeps itself up to date.
+One file, no settings, no admin screen, no network calls. It reads two constants and answers four WordPress filters.
 
 ## Why
 
@@ -26,18 +26,16 @@ It works as an ordinary plugin too, if you would rather have it in `plugins/` an
 | --- | --- | --- |
 | **Enabled** | `true` | The version control veto is lifted, so background updates are allowed to run |
 | **Updates** | `'minor'` | Point releases (6.8.1 → 6.8.2) install themselves; major and development releases do not |
-| **Self update** | `true` | Guard replaces its own file from its GitHub releases, within its current major version only |
 
 Nothing here forces a core update. Lifting the veto only puts the site where a non-git site already is, and plugin and theme auto-updates still follow their own per-item settings.
 
 ## Overriding the defaults
 
-Three constants, all optional, all in `wp-config.php` above the `/* That's all, stop editing! */` line:
+Two constants, both optional, both in `wp-config.php` above the `/* That's all, stop editing! */` line:
 
 ```php
-define( 'AFFINITY_GUARD_ENABLED', false );      // true (default) | false
-define( 'AFFINITY_GUARD_UPDATES', 'major' );    // 'minor' (default) | 'major' | 'dev'
-define( 'AFFINITY_GUARD_SELF_UPDATE', false );  // true (default) | false
+define( 'AFFINITY_GUARD_ENABLED', false );    // true (default) | false
+define( 'AFFINITY_GUARD_UPDATES', 'major' );  // 'minor' (default) | 'major' | 'dev'
 ```
 
 ### `AFFINITY_GUARD_ENABLED`
@@ -60,10 +58,6 @@ The levels are **cumulative** — each one includes those above it. A site that 
 | `'dev'` | yes | yes | yes |
 
 The value is trimmed and lower-cased, so `' Major '` works. An unrecognised value falls back to `'minor'` and, when `WP_DEBUG` is on, raises a `_doing_it_wrong()` notice naming the typo — a misspelling should not change a site's update policy in silence.
-
-### `AFFINITY_GUARD_SELF_UPDATE`
-
-See [Keeping itself current](#keeping-itself-current). `false` pins the file at whatever version you deployed.
 
 ## What minor, major and dev actually mean
 
@@ -101,48 +95,37 @@ Core decides this from the version the site is *already running*: a `$wp_version
 
 All four are added at priority 100: late enough to beat a theme or plugin setting a blanket policy on the default priority, early enough that your own code can still override it.
 
-## Keeping itself current
+## Updating this plugin
 
-WordPress has no update path for must-use plugins — they are not in `get_plugins()`, so nothing in core ever offers them a new version. Guard therefore checks [its own releases](https://github.com/affinitybridge/affinity-guard/releases) on a daily cron and replaces its own file, which is how a fleet picks up new hardening features without a deploy.
+By hand, or by whatever deploys your sites.
 
-Self-modifying code deserves scrutiny, so here is exactly what it will and will not do.
+Guard does not update itself. It makes no outbound requests and never writes to its own file — the plugin is a single file that only reads configuration and answers filters. Updating it is a copy:
 
-**It refuses to install anything unless all of these hold:**
+```sh
+cp affinity-guard.php /path/to/wp-content/mu-plugins/
+```
 
-| Check | Why |
-| --- | --- |
-| The release tag is a semantic version | A tag like `nightly` is not something to install |
-| The version is higher than the running one | No downgrades, no reinstalls |
-| The major version matches | 1.x never becomes 2.x on its own — see [Versioning](#versioning) |
-| The file starts with `<?php` and identifies as Affinity Guard | Wrong file, wrong repository |
-| Its header version matches the release | Catches a mistagged release |
-| The whole file parses as PHP | The realistic failure is a truncated download, and this file runs on **every** request — an unparseable one is a site down, not a feature missing |
-
-**How it writes:** to a temporary file first, then `rename()` into place, which is atomic on a local filesystem — a request arriving mid-update sees the whole old file or the whole new one, never half of each. The previous version is kept beside it as `affinity-guard.php.bak` (`.bak`, not `.php`, so WordPress does not load it as a second must-use plugin). Restoring is a `mv` away. Any failure leaves the running version untouched.
-
-**It stands down** when `AFFINITY_GUARD_SELF_UPDATE` is `false`, when `DISALLOW_FILE_MODS` is set — a site that has declared its files off limits has said so about this file too — or when the file is not writable.
+Earlier 1.x releases did update themselves from GitHub. That was removed in favour of a plugin with no network surface at all: a must-use file runs on every request and cannot be deactivated from the admin, so code that rewrites it from the internet is a foothold worth more than the convenience it buys. Releases are listed at [github.com/affinitybridge/affinity-guard/releases](https://github.com/affinitybridge/affinity-guard/releases) and deployed like any other code.
 
 ## Extending it
 
-Guard loads before any ordinary plugin, so it is a reasonable place to hang other security tooling. These hooks are the supported surface, stable for the life of the 1.x line:
+Guard loads before any ordinary plugin, so it is a reasonable place to hang other security tooling. These hooks are the supported surface, stable for the life of a major version:
 
 | Hook | Type | Signature |
 | --- | --- | --- |
 | `affinity_guard_loaded` | action | `( string $version )` — everything is registered and overridable |
 | `affinity_guard_update_level` | filter | `( string $level )` — return `'minor'`, `'major'` or `'dev'`; anything else is ignored |
-| `affinity_guard_self_update_enabled` | filter | `( bool $enabled )` — veto self updating at runtime |
-| `affinity_guard_self_updated` | action | `( string $from, string $to )` — the new file is on disk, this request still runs the old code |
-| `affinity_guard_self_update_failed` | action | `( string $reason, string $version )` — nothing changed; wire this to your monitoring |
 
 ```php
-add_action( 'affinity_guard_self_update_failed', function ( $reason, $version ) {
-	error_log( "Affinity Guard $version could not update itself: $reason" );
-}, 10, 2 );
+add_action( 'affinity_guard_loaded', function ( $version ) {
+	// Hang your own hardening here; it runs before any ordinary plugin loads.
+	add_filter( 'affinity_guard_update_level', fn() => 'major' );
+} );
 ```
 
 ## Versioning
 
-[Semantic versioning](https://semver.org/), where the public API is the three `AFFINITY_GUARD_*` constants and the hooks above.
+[Semantic versioning](https://semver.org/), where the public API is the two `AFFINITY_GUARD_*` constants and the hooks above.
 
 | Change | Bump |
 | --- | --- |
@@ -150,18 +133,18 @@ add_action( 'affinity_guard_self_update_failed', function ( $reason, $version ) 
 | A new module, constant or hook is added, defaults unchanged | **Minor** |
 | A fix that changes no documented behaviour | **Patch** |
 
-Self updates never cross a major boundary, so anything that could break your sites waits for a deploy you make deliberately. Releases are tagged `vX.Y.Z` and listed in [CHANGELOG.md](CHANGELOG.md).
+Every version reaches a site through a deploy you make, so nothing changes under a site without you putting it there. Releases are tagged `vX.Y.Z` and listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## What still overrides all of this
 
-`AUTOMATIC_UPDATER_DISABLED` and `DISALLOW_FILE_MODS` stop the updater before these filters are ever reached, and `DISABLE_WP_CRON` means nothing runs unless a real cron job calls `wp-cron.php` — including Guard's own update check. Check all three first when a site never updates.
+`AUTOMATIC_UPDATER_DISABLED` and `DISALLOW_FILE_MODS` stop the updater before these filters are ever reached, and `DISABLE_WP_CRON` means nothing runs unless a real cron job calls `wp-cron.php`. Check all three first when a site never updates.
 
 ## The deploy question
 
-Background updates write to `wp-admin`, `wp-includes` and the updated plugin or theme directory, and Guard's self update writes to `affinity-guard.php`. On a site whose `mu-plugins` directory is tracked, that shows up as working-tree changes on the server. Decide which of these you are before rolling it out:
+Background updates write to `wp-admin`, `wp-includes` and the updated plugin or theme directory. On a site whose webroot is tracked, that shows up as working-tree changes on the server. Decide which of these you are before rolling it out:
 
 - **Deploy is a `git pull` on the server.** Updates apply and work. Commit the resulting changes, or your next deploy reverts them.
-- **Deploy builds from a clean checkout elsewhere.** The update is real until the next release overwrites it. Pin versions in the repository instead, set `AFFINITY_GUARD_SELF_UPDATE` to `false`, and treat Guard as a deployed dependency.
+- **Deploy builds from a clean checkout elsewhere.** The update is real until the next release overwrites it. Pin core's version in the repository instead, and treat updates as something the deploy applies.
 
 ## License
 
