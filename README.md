@@ -135,6 +135,34 @@ add_action( 'affinity_guard_loaded', function ( $version ) {
 
 Every version reaches a site through a deploy you make, so nothing changes under a site without you putting it there. Releases are tagged `vX.Y.Z` and listed in [CHANGELOG.md](CHANGELOG.md).
 
+## When updates actually run
+
+WordPress checks for core updates on the `wp_version_check` cron event, every twelve hours. There is no separate event for the update itself — `wp_version_check()` fires `wp_maybe_auto_update` inline at the end of its own run, and only when it is running under cron:
+
+```php
+if ( $doing_cron && ! doing_action( 'wp_maybe_auto_update' ) ) {
+	do_action( 'wp_maybe_auto_update' );
+}
+```
+
+So loading a page in a browser never triggers an update. If `DISABLE_WP_CRON` is set and no system cron calls `wp-cron.php`, nothing updates, ever. On a low traffic site with default WP-cron, checks drift later than twelve hours because they only fire when someone visits.
+
+To run one now: `wp cron event run wp_version_check`.
+
+## Diagnosing a site that has not updated
+
+[`tools/why-no-updates.php`](tools/why-no-updates.php) walks every gate a core update has to pass, in the order WordPress consults them, and names the ones that are shut. It reads state and changes nothing.
+
+```sh
+# on the server
+wp eval-file why-no-updates.php
+
+# or over ssh, without copying anything up
+ssh prod 'cd /var/www/site && wp eval-file -' < tools/why-no-updates.php
+```
+
+It covers Guard's own configuration, `AUTOMATIC_UPDATER_DISABLED`, `DISALLOW_FILE_MODS`, the filesystem method (background updates need `direct`, not FTP credentials), the version control veto, cron scheduling and `DISABLE_WP_CRON`, a held or crashed updater lock, a recorded previous failure, and whether the offered version is one the configured level permits. The verdict lists what to fix.
+
 ## What still overrides all of this
 
 `AUTOMATIC_UPDATER_DISABLED` and `DISALLOW_FILE_MODS` stop the updater before these filters are ever reached, and `DISABLE_WP_CRON` means nothing runs unless a real cron job calls `wp-cron.php`. Check all three first when a site never updates.
