@@ -23,19 +23,6 @@
 		<exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
 	</rule>
 
-	<!--
-	tools/ holds command line diagnostics, run through WP-CLI and printed to a
-	terminal. Escaping their output would put HTML entities on the operator's
-	screen, and WP_Filesystem is the wrong instrument for reporting whether a
-	path is writable, which is the very thing being diagnosed.
-	-->
-	<rule ref="WordPress.Security.EscapeOutput">
-		<exclude-pattern>/tools/*</exclude-pattern>
-	</rule>
-	<rule ref="WordPress.WP.AlternativeFunctions">
-		<exclude-pattern>/tools/*</exclude-pattern>
-	</rule>
-
 	<config name="minimum_wp_version" value="5.2"/>
 	<config name="testVersion" value="7.4-"/>
 </ruleset>
